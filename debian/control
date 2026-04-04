@@ -1,0 +1,12 @@
+Source: ros-jazzy-pfs
+Section: misc
+Priority: optional
+Maintainer: Daniel Trugman <dtrugman@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), cmake, ros-jazzy-ros-workspace
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-jazzy-pfs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-jazzy-ros-workspace
+Description: Production grade, very easy to use, procfs parsing library in C++
