@@ -16,6 +16,7 @@ Run `cmake . && make`
 - `CMAKE_BUILD_TYPE=<Debug|Release>`: Standard CMake flags to control build type (DEFAULT: Debug)
 - `pfs_BUILD_SHARED_LIBS=<ON|OFF>`: ON to compile a shared library. OFF to compile a static library (DEFAULT: Inherit `BUILD_SHARE_LIBS`, which is `OFF` by default))
 - `pfs_BUILD_ASAN=<ON|OFF>`: ON to enable address sanitizer (DEFAULT: `OFF`)
+- `pfs_BUILD_COVERAGE=<ON|OFF>`: ON to enable coverage instrumentation (DEFAULT: `OFF`)
 - `pfs_BUILD_SAMPLES=<ON|OFF>`: ON to build the sample programs (DEFAULT: `ON`)
 - `pfs_BUILD_TESTS=<ON|OFF>`: ON to build the tests (DEFAULT: `ON`)
 
@@ -30,6 +31,18 @@ If you prefer using clang, just configure the compiler while running cmake:
 `CXX=<clang++> CC=<clang> cmake .`
 
 After that, just use `make` as always.
+
+## Code Coverage
+
+Generate a coverage report is via Docker:
+
+```bash
+./docker/docker-pfs coverage
+```
+
+This builds the project with coverage instrumentation, runs all tests, and produces:
+- A text summary printed to the terminal
+- An HTML report at `./coverage/index.html`
 
 ## Integrate
 
@@ -94,7 +107,26 @@ target_include_directories (<your-target> [PUBLIC|PRIVATE] ${pfs_INCLUDE_DIRS})
 
 If you call `procfs().get_task(<id>)` and that task doesn't really exist, the constructor will succeed.
 
-Since tasks can die any time, instead of adding extra validation during construction, which might be confusing, the current design assumes the first call after the tasks died will fail.
+Since tasks can die at any time, the library intentionally does not validate task existence at construction. This applies equally to `task::get_task(<id>)` for threads.
+
+The reason is that any check would still be racy: a task can die between the check and the first getter call. More importantly, adding an eager check would break the common snapshot pattern:
+
+```cpp
+for (const auto& process : pfs.get_processes())
+{
+    try
+    {
+        auto stat = process.get_stat(); // throws std::system_error if process died
+        ...
+    }
+    catch (const std::system_error&)
+    {
+        continue; // process died between enumeration and access, skip it
+    }
+}
+```
+
+`get_processes()` and `get_tasks()` enumerate PIDs and then construct task objects for each. A single process dying mid-iteration would throw and abort the entire enumeration if existence were checked eagerly. The correct pattern is to catch `std::system_error` from individual getters.
 
 ### Collecting thread information
 
