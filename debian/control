@@ -1,0 +1,12 @@
+Source: ros-rolling-pfs
+Section: misc
+Priority: optional
+Maintainer: "Daniel Trugman" <dtrugman@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), cmake, ros-rolling-ros-workspace
+Homepage: https://index.ros.org/p/pfs/#rolling
+Standards-Version: 3.9.2
+
+Package: ros-rolling-pfs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-rolling-ros-workspace
+Description: Production grade, very easy to use, procfs parsing library in C++
