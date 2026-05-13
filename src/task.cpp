@@ -60,7 +60,7 @@ bool task::operator<(const task& rhs) const
 
 bool task::is_kernel_thread(const task_stat& st)
 {
-    static const int ROOT_KERNEL_TASK_ID = 2;
+    static const int ROOT_KERNEL_TASK_ID = 2; // kthreadd, parent of all kernel threads
 
     return st.pid == ROOT_KERNEL_TASK_ID || st.ppid == ROOT_KERNEL_TASK_ID;
 }
@@ -194,15 +194,20 @@ task_stat task::get_stat() const
     }
 
     // Reassign comm as the text between the outmost pair of parenthesis
-    st.comm = st.comm.substr(1, st.comm.find_last_of(')') - 1);
+    auto close_paren = st.comm.find_last_of(')');
+    if (close_paren == std::string::npos || close_paren == 0)
+    {
+        throw std::runtime_error("Corrupted stat - Malformed comm field");
+    }
+    st.comm = st.comm.substr(1, close_paren - 1);
 
-    // Skip past comm: Parentheses(2) + Actual comm + Space before next token(1)
+    // Skip past comm: closing ')' + space separator before next token
     //     +|----|++
     // ... (<comm>) <next> ...
     //    ^
     // pre-comm
-    static const size_t COMM_WRAP_SIZE = 3;
-    if (fseek(fp, pre_comm + st.comm.size() + COMM_WRAP_SIZE, SEEK_SET) != 0)
+    static const size_t COMM_SUFFIX_SIZE = 2; // ')' + ' '
+    if (fseek(fp, pre_comm + close_paren + COMM_SUFFIX_SIZE, SEEK_SET) != 0)
     {
         throw std::runtime_error("Couldn't seek past comm in stat");
     }
@@ -439,7 +444,7 @@ std::unordered_map<std::string, ino64_t> task::get_ns() const
     static const std::string NS_DIR("ns/");
     auto path = _task_root + NS_DIR;
 
-    int dirfd = open(path.c_str(), O_DIRECTORY);
+    int dirfd = open(path.c_str(), O_DIRECTORY | O_CLOEXEC);
     if (dirfd == -1)
     {
         throw std::system_error(errno, std::system_category(),
@@ -468,7 +473,7 @@ task task::get_task(int id) const
     return task(path, id);
 }
 
-std::set<task> task::get_tasks() const
+std::set<task> task::get_tasks(task_filter filter) const
 {
     static const std::string TASKS_DIR("task/");
     auto path = _task_root + TASKS_DIR;
@@ -479,7 +484,11 @@ std::set<task> task::get_tasks() const
     {
         // Important, see README note about collecting information
         // about threads to understand why we pass 'path' as the root dir.
-        threads.emplace(task(path, thread_id));
+        task t(path, thread_id);
+        if (!filter || filter(t) == filter::action::keep)
+        {
+            threads.emplace(std::move(t));
+        }
     }
 
     return threads;
@@ -514,7 +523,7 @@ uint32_t task::get_sessionid() const
 
     auto line = utils::readline(path);
     uint32_t session_id;
-    parsers::to_number(line, session_id);
+    parsers::to_number(SESSION_ID_FILE, line, utils::base::decimal, session_id);
     return session_id;
 }
 

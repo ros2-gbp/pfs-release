@@ -50,8 +50,6 @@ static void to_sequence(const std::string& value, proc_stat::sequence<T>& out)
 
     try
     {
-        proc_stat::sequence<T> sequence;
-
         utils::stot(tokens[TOTAL], out.total);
 
         for (size_t i = MIN_COUNT; i < tokens.size(); i++)
@@ -171,29 +169,29 @@ static void parse_intr(const std::string& value, proc_stat& out)
 
 static void parse_ctxt(const std::string& value, proc_stat& out)
 {
-    to_number(value, out.ctxt);
+    to_number("ctxt", value, utils::base::decimal, out.ctxt);
 }
 
 static void parse_btime(const std::string& value, proc_stat& out)
 {
     time_t btime;
-    to_number(value, btime);
+    to_number("btime", value, utils::base::decimal, btime);
     out.btime = std::chrono::system_clock::from_time_t(btime);
 }
 
 static void parse_processes(const std::string& value, proc_stat& out)
 {
-    to_number(value, out.processes);
+    to_number("processes", value, utils::base::decimal, out.processes);
 }
 
 static void parse_procs_running(const std::string& value, proc_stat& out)
 {
-    to_number(value, out.procs_running);
+    to_number("procs_running", value, utils::base::decimal, out.procs_running);
 }
 
 static void parse_procs_blocked(const std::string& value, proc_stat& out)
 {
-    to_number(value, out.procs_blocked);
+    to_number("procs_blocked", value, utils::base::decimal, out.procs_blocked);
 }
 
 static void parse_softirq(const std::string& value, proc_stat& out)
